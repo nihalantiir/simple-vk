@@ -22,6 +22,7 @@ jobs:
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
           vulkan_version: latest
+          optional_components: com.lunarg.vulkan.sdl3,com.lunarg.vulkan.volk,com.lunarg.vulkan.vma,com.lunarg.vulkan.glm
           cache: true
 
       - name: Set up MSVC Developer Command Prompt
