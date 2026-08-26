@@ -114,9 +114,8 @@ void VulkanContext::createInstance(Window& window) {
     createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     createInfo.ppEnabledExtensionNames = extensions.data();
 
-    // Chaining a debug messenger create-info here (via pNext) additionally
-    // covers vkCreateInstance/vkDestroyInstance themselves; setupDebugMessenger()
-    // installs the persistent one used for everything in between.
+    // Chaining a messenger here also covers vkCreateInstance/vkDestroyInstance;
+    // setupDebugMessenger() installs the persistent one for everything else.
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     if (validationEnabled_) {
         static const char* layer = kValidationLayerName;

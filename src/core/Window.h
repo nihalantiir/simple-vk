@@ -2,31 +2,33 @@
 
 #include <volk.h>
 
+#include <functional>
 #include <string>
 #include <vector>
 
 struct SDL_Window;
+union SDL_Event;
 
 namespace core {
 
-// Wraps SDL3 window creation and the SDL/Vulkan integration points: the
-// required instance extension list, surface creation, and event polling.
-// This is the only class that knows about SDL; everything else deals in
-// plain Vulkan handles.
+// SDL3 window and the SDL/Vulkan integration points. The only class that
+// knows about SDL directly.
 class Window {
 public:
+    using EventCallback = std::function<void(const SDL_Event&)>;
+
     Window(const std::string& title, int width, int height);
     ~Window();
 
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
 
-    // Pumps the SDL event queue and updates internal state (quit/resize).
-    void pollEvents();
+    // Pumps the SDL event queue, forwarding each raw event to onEvent (if
+    // set) before updating internal state (quit/resize).
+    void pollEvents(const EventCallback& onEvent = {});
 
-    // Accumulates frame time and, at most a few times a second, updates the
-    // window title to "<title> — X.XX ms (YYY FPS)". Call once per frame
-    // with that frame's delta time.
+    // Updates the title to "<title> - X.XX ms (YYY FPS)" at most twice a
+    // second. Call once per frame with that frame's delta time.
     void updateTitle(float deltaTimeSeconds);
 
     VkSurfaceKHR createSurface(VkInstance instance) const;
@@ -35,6 +37,7 @@ public:
     // Current drawable size in pixels (accounts for HiDPI scaling).
     void getFramebufferSize(int& width, int& height) const;
 
+    SDL_Window* handle() const { return window_; }
     bool shouldClose() const { return quitRequested_; }
 
     // Returns true exactly once after a resize event, then clears the flag.

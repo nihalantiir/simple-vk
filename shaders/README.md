@@ -2,8 +2,8 @@
 
 GLSL sources, compiled to SPIR-V by CMake at build time (see the shader
 compilation block in the top-level `CMakeLists.txt`). Output `.spv` files are
-written to the build tree (`build/bin/shaders/`) next to the executable —
-nothing under this directory is a build artifact, and nothing here needs to
+written to the build tree (`build/bin/shaders/`) next to the executable.
+Nothing under this directory is a build artifact, and nothing here needs to
 be copied or installed manually.
 
 Naming convention: `<name>.<stage>`, e.g. `triangle.vert` / `triangle.frag`,

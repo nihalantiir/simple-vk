@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(simple-vk VERSION 0.2.0 LANGUAGES CXX)
+project(simple-vk VERSION 0.3.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,12 +17,11 @@ if(NOT DEFINED ENV{VULKAN_SDK})
 endif()
 set(VULKAN_SDK_ROOT "$ENV{VULKAN_SDK}")
 
-# The SDK exposes some bundled packages as proper CMake configs (SDL3, at a
-# nonstandard <sdk>/cmake path on Windows) and others (volk, VMA, glm) only
-# as raw headers/libs under Include/ and Lib/. find_package() is tried first
-# for everything so this keeps working if a given SDK version/platform ships
-# full configs; anything not found that way falls back to manually wired
-# imported targets built from the raw SDK layout below.
+# find_package() is tried first for everything; anything not found that way
+# (the SDK ships volk/VMA/glm as raw headers/libs, not CMake packages, on
+# some platforms) falls back to imported targets built from the raw SDK
+# layout below. CI overrides CMAKE_PREFIX_PATH with a vcpkg prefix instead
+# of changing any of this.
 list(APPEND CMAKE_PREFIX_PATH
   "${VULKAN_SDK_ROOT}"
   "${VULKAN_SDK_ROOT}/cmake"
@@ -35,7 +34,7 @@ find_package(volk CONFIG QUIET)
 find_package(VulkanMemoryAllocator CONFIG QUIET)
 find_package(glm CONFIG QUIET)
 
-# --- volk: function loader (prebuilt static lib in the SDK) ---
+# --- volk ---
 if(NOT TARGET volk::volk)
   find_path(VOLK_INCLUDE_DIR NAMES volk.h
     PATHS "${VULKAN_SDK_ROOT}/Include/Volk" "${VULKAN_SDK_ROOT}/include/volk" "${VULKAN_SDK_ROOT}/include/Volk"
@@ -60,7 +59,7 @@ if(NOT TARGET volk::volk)
   endif()
 endif()
 
-# --- Vulkan Memory Allocator: header-only ---
+# --- Vulkan Memory Allocator (header-only) ---
 if(NOT TARGET GPUOpen::VulkanMemoryAllocator)
   find_path(VMA_INCLUDE_DIR NAMES vk_mem_alloc.h
     PATHS "${VULKAN_SDK_ROOT}/Include/vma" "${VULKAN_SDK_ROOT}/include/vma"
@@ -74,7 +73,7 @@ if(NOT TARGET GPUOpen::VulkanMemoryAllocator)
   add_library(GPUOpen::VulkanMemoryAllocator ALIAS VulkanMemoryAllocator)
 endif()
 
-# --- GLM: header-only ---
+# --- GLM (header-only) ---
 if(NOT TARGET glm::glm)
   find_path(GLM_INCLUDE_DIR NAMES glm/glm.hpp
     PATHS "${VULKAN_SDK_ROOT}/Include" "${VULKAN_SDK_ROOT}/include"
@@ -88,6 +87,37 @@ if(NOT TARGET glm::glm)
   add_library(glm::glm ALIAS glm)
 endif()
 
+# --- Dear ImGui (vendored via FetchContent into external/, pinned commit) ---
+include(FetchContent)
+set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/external" CACHE PATH "" FORCE)
+
+FetchContent_Declare(
+  imgui
+  GIT_REPOSITORY https://github.com/ocornut/imgui.git
+  GIT_TAG fd13a1e8923a0a7077b404fc36fd063b25a0c0b5 # docking, 2026-08-19
+  GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(imgui)
+
+add_library(imgui STATIC
+  ${imgui_SOURCE_DIR}/imgui.cpp
+  ${imgui_SOURCE_DIR}/imgui_draw.cpp
+  ${imgui_SOURCE_DIR}/imgui_tables.cpp
+  ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+  ${imgui_SOURCE_DIR}/imgui_demo.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+)
+target_include_directories(imgui PUBLIC
+  ${imgui_SOURCE_DIR}
+  ${imgui_SOURCE_DIR}/backends
+)
+target_compile_definitions(imgui PUBLIC
+  VK_NO_PROTOTYPES
+  IMGUI_IMPL_VULKAN_USE_VOLK # backend loads its Vulkan calls through volk instead of linking the loader directly
+)
+target_link_libraries(imgui PUBLIC volk::volk SDL3::SDL3)
+
 add_executable(simple-vk
   src/main.cpp
   src/core/Window.cpp
@@ -96,6 +126,7 @@ add_executable(simple-vk
   src/core/ShaderModule.cpp
   src/core/VmaImpl.cpp
   src/renderer/Renderer.cpp
+  src/debug/DebugUi.cpp
   src/game/Game.cpp
 )
 
@@ -120,16 +151,14 @@ target_link_libraries(simple-vk PRIVATE
   GPUOpen::VulkanMemoryAllocator
   SDL3::SDL3
   glm::glm
+  imgui
 )
 
 set_target_properties(simple-vk PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
-# --- Shader compilation (GLSL -> SPIR-V via the SDK's glslc) ---
-# find_package(Vulkan) already probes for glslc/glslangValidator and creates
-# Vulkan::glslc when found; fall back to a manual find_program() using the
-# same raw-SDK-layout pattern as the volk/VMA/glm fallbacks above.
+# --- Shader compilation (GLSL -> SPIR-V) ---
 if(TARGET Vulkan::glslc)
   set(GLSLC_COMMAND Vulkan::glslc)
 else()

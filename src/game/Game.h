@@ -4,10 +4,8 @@
 
 namespace game {
 
-// Placeholder for game/engine logic, deliberately decoupled from the
-// Vulkan bootstrap (core/) and rendering (renderer/) code. Grow this into
-// scene state, input handling, and gameplay systems; the render loop in
-// main.cpp already calls update() once per frame.
+// Placeholder for game/engine logic, decoupled from core/ and renderer/.
+// main.cpp calls update() once per frame.
 class Game {
 public:
     Game() = default;

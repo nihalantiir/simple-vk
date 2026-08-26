@@ -15,3 +15,7 @@ CMakeUserPresets.json
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# FetchContent checkout, not vendored in-repo
+external/*
+!external/README.md

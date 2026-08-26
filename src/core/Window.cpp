@@ -30,9 +30,12 @@ Window::~Window() {
     SDL_Quit();
 }
 
-void Window::pollEvents() {
+void Window::pollEvents(const EventCallback& onEvent) {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
+        if (onEvent) {
+            onEvent(event);
+        }
         switch (event.type) {
             case SDL_EVENT_QUIT:
                 quitRequested_ = true;
@@ -58,7 +61,7 @@ void Window::updateTitle(float deltaTimeSeconds) {
     const float fps = static_cast<float>(titleUpdateFrames_) / titleUpdateTimer_;
 
     char buffer[128];
-    std::snprintf(buffer, sizeof(buffer), "%s \xE2\x80\x94 %.2f ms (%.0f FPS)", baseTitle_.c_str(), avgFrameMs, fps);
+    std::snprintf(buffer, sizeof(buffer), "%s - %.2f ms (%.0f FPS)", baseTitle_.c_str(), avgFrameMs, fps);
     SDL_SetWindowTitle(window_, buffer);
 
     titleUpdateTimer_ = 0.0f;

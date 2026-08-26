@@ -112,6 +112,7 @@ void Swapchain::create() {
 
     imageFormat_ = surfaceFormat.format;
     extent_ = extent;
+    presentMode_ = presentMode;
 
     uint32_t actualImageCount = 0;
     vkGetSwapchainImagesKHR(context_.device(), swapchain_, &actualImageCount, nullptr);

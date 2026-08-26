@@ -18,10 +18,7 @@ struct QueueFamilyIndices {
 };
 
 // Owns the core Vulkan bootstrap objects: instance, debug messenger,
-// surface, physical/logical device, queues, and the VMA allocator. Every
-// other Vulkan-facing class (Swapchain, Renderer, ...) is built on top of
-// this and takes a reference to it rather than owning any of these handles
-// itself.
+// surface, physical/logical device, queues, and the VMA allocator.
 class VulkanContext {
 public:
     explicit VulkanContext(Window& window);

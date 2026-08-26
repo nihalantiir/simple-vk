@@ -26,6 +26,7 @@ public:
     VkSwapchainKHR handle() const { return swapchain_; }
     VkFormat imageFormat() const { return imageFormat_; }
     VkExtent2D extent() const { return extent_; }
+    VkPresentModeKHR presentMode() const { return presentMode_; }
     const std::vector<VkImage>& images() const { return images_; }
     const std::vector<VkImageView>& imageViews() const { return imageViews_; }
     uint32_t imageCount() const { return static_cast<uint32_t>(images_.size()); }
@@ -44,6 +45,7 @@ private:
     VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
     VkFormat imageFormat_ = VK_FORMAT_UNDEFINED;
     VkExtent2D extent_{};
+    VkPresentModeKHR presentMode_ = VK_PRESENT_MODE_FIFO_KHR;
     std::vector<VkImage> images_;
     std::vector<VkImageView> imageViews_;
 };

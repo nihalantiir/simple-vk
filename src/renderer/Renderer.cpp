@@ -6,8 +6,8 @@
 #include "../core/VkCheck.h"
 #include "../core/VulkanContext.h"
 #include "../core/Window.h"
+#include "../debug/DebugUi.h"
 
-#include <array>
 #include <cstring>
 #include <iterator>
 #include <stdexcept>
@@ -15,29 +15,12 @@
 
 namespace renderer {
 
-namespace {
-
-// A single hardcoded triangle. This is deliberately inline data rather than
-// a "Mesh" abstraction - simple-vk stays a boilerplate, not an engine.
-struct Vertex {
-    float position[2];
-    float color[3];
-};
-
-constexpr std::array<Vertex, 3> kTriangleVertices = {{
-    {{0.0f, -0.5f}, {0.90f, 0.25f, 0.25f}},
-    {{0.5f, 0.5f}, {0.25f, 0.85f, 0.35f}},
-    {{-0.5f, 0.5f}, {0.30f, 0.45f, 0.95f}},
-}};
-
-} // namespace
-
 Renderer::Renderer(core::VulkanContext& context, core::Swapchain& swapchain, core::Window& window)
     : context_(context), swapchain_(swapchain), window_(window) {
     createCommandPool();
     createCommandBuffers();
     createSyncObjects();
-    createVertexBuffer();
+    createVertexBuffers();
     createPipeline();
 }
 
@@ -50,8 +33,10 @@ Renderer::~Renderer() {
     if (pipelineLayout_ != VK_NULL_HANDLE) {
         vkDestroyPipelineLayout(context_.device(), pipelineLayout_, nullptr);
     }
-    if (vertexBuffer_ != VK_NULL_HANDLE) {
-        vmaDestroyBuffer(context_.allocator(), vertexBuffer_, vertexBufferAllocation_);
+    for (int i = 0; i < kFramesInFlight; ++i) {
+        if (vertexBuffers_[i] != VK_NULL_HANDLE) {
+            vmaDestroyBuffer(context_.allocator(), vertexBuffers_[i], vertexBufferAllocations_[i]);
+        }
     }
 
     destroySyncObjects();
@@ -144,30 +129,36 @@ void Renderer::destroySyncObjects() {
     }
 }
 
-void Renderer::createVertexBuffer() {
-    const VkDeviceSize bufferSize = sizeof(kTriangleVertices);
+void Renderer::createVertexBuffers() {
+    const VkDeviceSize bufferSize = sizeof(vertices_);
 
     VkBufferCreateInfo bufferInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.size = bufferSize;
     bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    // A static 3-vertex triangle is tiny and never updated after creation,
-    // so a single host-visible, persistently-mapped allocation (no staging
-    // buffer, no device-local copy) is the simplest correct choice.
+    // Persistently mapped, host-visible: the triangle is tiny and edited
+    // live by the debug UI, so a staging buffer would only add cost.
     VmaAllocationCreateInfo allocInfo{};
     allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
     allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
-    VmaAllocationInfo allocationInfo{};
-    core::vkCheck(vmaCreateBuffer(context_.allocator(), &bufferInfo, &allocInfo, &vertexBuffer_,
-                                   &vertexBufferAllocation_, &allocationInfo),
-                  "Failed to create vertex buffer");
+    for (int i = 0; i < kFramesInFlight; ++i) {
+        VmaAllocationInfo allocationInfo{};
+        core::vkCheck(vmaCreateBuffer(context_.allocator(), &bufferInfo, &allocInfo, &vertexBuffers_[i],
+                                       &vertexBufferAllocations_[i], &allocationInfo),
+                      "Failed to create vertex buffer");
+        vertexBuffersMapped_[i] = allocationInfo.pMappedData;
+        updateVertexBuffer(i);
 
-    std::memcpy(allocationInfo.pMappedData, kTriangleVertices.data(), static_cast<size_t>(bufferSize));
+        const std::string debugName = "triangle vertex buffer " + std::to_string(i);
+        core::setDebugObjectName(context_.device(), VK_OBJECT_TYPE_BUFFER,
+                                  reinterpret_cast<uint64_t>(vertexBuffers_[i]), debugName.c_str());
+    }
+}
 
-    core::setDebugObjectName(context_.device(), VK_OBJECT_TYPE_BUFFER, reinterpret_cast<uint64_t>(vertexBuffer_),
-                              "triangle vertex buffer");
+void Renderer::updateVertexBuffer(int frameIndex) {
+    std::memcpy(vertexBuffersMapped_[frameIndex], vertices_.data(), sizeof(vertices_));
 }
 
 void Renderer::createPipeline() {
@@ -205,8 +196,8 @@ void Renderer::createPipeline() {
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-    // Viewport and scissor are dynamic so the pipeline never needs to be
-    // recreated when the swapchain is resized - only its extent changes.
+    // Dynamic viewport/scissor: the pipeline never needs to be recreated
+    // when the swapchain is resized, only its extent changes.
     const VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
     VkPipelineDynamicStateCreateInfo dynamicState{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
     dynamicState.dynamicStateCount = static_cast<uint32_t>(std::size(dynamicStates));
@@ -240,8 +231,6 @@ void Renderer::createPipeline() {
     core::setDebugObjectName(context_.device(), VK_OBJECT_TYPE_PIPELINE_LAYOUT,
                               reinterpret_cast<uint64_t>(pipelineLayout_), "triangle pipeline layout");
 
-    // Dynamic rendering: the pipeline declares the attachment formats it
-    // will be used with directly, instead of being tied to a VkRenderPass.
     const VkFormat colorFormat = swapchain_.imageFormat();
     VkPipelineRenderingCreateInfo renderingInfo{VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
     renderingInfo.colorAttachmentCount = 1;
@@ -266,7 +255,7 @@ void Renderer::createPipeline() {
                               "triangle pipeline");
 }
 
-void Renderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageIndex) {
+void Renderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageIndex, debug::DebugUi* debugUi) {
     VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
     core::vkCheck(vkBeginCommandBuffer(cmd, &beginInfo), "Failed to begin command buffer");
 
@@ -299,7 +288,7 @@ void Renderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageIndex) {
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.clearValue.color = {{0.02f, 0.02f, 0.05f, 1.0f}};
+    colorAttachment.clearValue.color = {{clearColor_[0], clearColor_[1], clearColor_[2], 1.0f}};
 
     VkRenderingInfo renderingInfo{VK_STRUCTURE_TYPE_RENDERING_INFO};
     renderingInfo.renderArea = {{0, 0}, extent};
@@ -319,8 +308,12 @@ void Renderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageIndex) {
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     const VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer_, &offset);
-    vkCmdDraw(cmd, static_cast<uint32_t>(kTriangleVertices.size()), 1, 0, 0);
+    vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffers_[currentFrame_], &offset);
+    vkCmdDraw(cmd, static_cast<uint32_t>(vertices_.size()), 1, 0, 0);
+
+    if (debugUi) {
+        debugUi->render(cmd);
+    }
 
     vkCmdEndRendering(cmd);
 
@@ -340,7 +333,7 @@ void Renderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageIndex) {
     core::vkCheck(vkEndCommandBuffer(cmd), "Failed to end command buffer");
 }
 
-void Renderer::drawFrame() {
+void Renderer::drawFrame(debug::DebugUi* debugUi) {
     const VkDevice device = context_.device();
 
     vkWaitForFences(device, 1, &inFlightFences_[currentFrame_], VK_TRUE, UINT64_MAX);
@@ -366,8 +359,9 @@ void Renderer::drawFrame() {
     imagesInFlight_[imageIndex] = inFlightFences_[currentFrame_];
 
     vkResetFences(device, 1, &inFlightFences_[currentFrame_]);
+    updateVertexBuffer(static_cast<int>(currentFrame_));
     vkResetCommandBuffer(commandBuffers_[currentFrame_], 0);
-    recordCommandBuffer(commandBuffers_[currentFrame_], imageIndex);
+    recordCommandBuffer(commandBuffers_[currentFrame_], imageIndex, debugUi);
 
     const VkSemaphore waitSemaphores[] = {imageAvailableSemaphores_[currentFrame_]};
     const VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};

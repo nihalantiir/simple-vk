@@ -4,12 +4,9 @@
 
 namespace core {
 
-// Tags a Vulkan object with a human-readable name via VK_EXT_debug_utils, so
-// validation messages and tools like RenderDoc/Nsight show real names
-// instead of raw handles. Safe to call unconditionally: the function pointer
-// is only non-null when the debug utils extension was actually enabled
-// (validation layers available in a Debug build), so this is a no-op
-// everywhere else.
+// Tags a Vulkan object with a name via VK_EXT_debug_utils. Safe to call
+// unconditionally: the function pointer is null unless the extension was
+// enabled (Debug builds with validation), so this is a no-op otherwise.
 inline void setDebugObjectName(VkDevice device, VkObjectType type, uint64_t handle, const char* name) {
     if (!vkSetDebugUtilsObjectNameEXT) {
         return;

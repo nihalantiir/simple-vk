@@ -15,9 +15,7 @@ namespace core {
 namespace {
 
 std::vector<char> readSpirvFile(const std::string& relativePath) {
-    // SDL_GetBasePath() returns the executable's own directory (trailing
-    // separator included), so shader loading doesn't depend on the
-    // process's current working directory.
+    // Trailing separator included; independent of the process's cwd.
     const char* basePath = SDL_GetBasePath();
     const std::string fullPath = basePath ? (std::string(basePath) + relativePath) : relativePath;
 
