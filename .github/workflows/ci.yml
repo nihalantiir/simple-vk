@@ -18,32 +18,45 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Only Vulkan core (headers, loader, validation layers, glslc) is
+      # needed from the SDK itself in CI. SDL3/volk/VMA/GLM are provided by
+      # vcpkg below: the SDK's unattended installer doesn't reliably offer
+      # all four as installable components across platforms (confirmed via
+      # live CI runs - accepted IDs varied and some silently installed
+      # nothing usable), unlike the interactive Windows installer used for
+      # local development, which bundles them unconditionally.
       - name: Install Vulkan SDK
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
           vulkan_version: latest
-          optional_components: com.lunarg.vulkan.sdl2,com.lunarg.vulkan.volk,com.lunarg.vulkan.vma,com.lunarg.vulkan.glm
           cache: true
 
-      # The Vulkan SDK does not reliably offer SDL3/GLM as installable
-      # components in unattended CI installs (unlike the interactive
-      # Windows installer, which bundles SDL3 unconditionally) - vcpkg,
-      # preinstalled on GitHub-hosted runners, fills that gap for CI.
-      # volk/VMA still come from the Vulkan SDK, matching local
-      # development. sdl3[core] skips SDL3's optional Linux backends
-      # (wayland/x11/ibus/dbus), which pull in build tools (gperf,
-      # autoconf) this runner doesn't have and which a compile-only check
-      # doesn't need anyway.
+      # Linux only: volk.h unconditionally pulls in the XCB platform
+      # headers when compiling on Linux, regardless of which WSI backend
+      # SDL3 actually ends up using at runtime.
+      - name: Install XCB headers
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb1-dev libx11-dev libwayland-dev
+
+      # vcpkg's volk/vulkan-memory-allocator/glm ports produce CMake
+      # packages with the exact target names (volk::volk,
+      # GPUOpen::VulkanMemoryAllocator, glm::glm) CMakeLists.txt already
+      # looks for via find_package(... CONFIG), so no project-side changes
+      # are needed. sdl3[core] skips SDL3's optional Linux backends
+      # (wayland/x11/ibus/dbus), which pull in build tools this runner
+      # doesn't have and which a compile-only check doesn't need anyway.
       #
       # The install prefix is captured into SIMPLE_VK_VCPKG_PREFIX (not
       # VCPKG_ROOT) because ilammy/msvc-dev-cmd, which runs after this
       # step on Windows, overwrites VCPKG_ROOT with Visual Studio's own
       # bundled (and here, unused) vcpkg instance.
-      - name: Install SDL3 + GLM (vcpkg)
+      - name: Install SDL3 + volk + VMA + GLM (vcpkg)
         shell: bash
         run: |
           VCPKG_ROOT="${VCPKG_INSTALLATION_ROOT:-$VCPKG_ROOT}"
-          "$VCPKG_ROOT/vcpkg" install "sdl3[core]" glm
+          "$VCPKG_ROOT/vcpkg" install "sdl3[core]" volk vulkan-memory-allocator glm
 
           TRIPLET=x64-windows
           [ "$RUNNER_OS" = "Linux" ] && TRIPLET=x64-linux
