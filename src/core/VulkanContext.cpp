@@ -1,5 +1,6 @@
 #include "VulkanContext.h"
 
+#include "DebugUtils.h"
 #include "VkCheck.h"
 #include "Window.h"
 
@@ -197,8 +198,19 @@ bool VulkanContext::isDeviceSuitable(VkPhysicalDevice device) const {
     uint32_t presentModeCount = 0;
     vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface_, &formatCount, nullptr);
     vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface_, &presentModeCount, nullptr);
+    if (formatCount == 0 || presentModeCount == 0) {
+        return false;
+    }
 
-    return formatCount > 0 && presentModeCount > 0;
+    // dynamicRendering is a mandatory core feature for any device claiming
+    // Vulkan 1.3 support, but it's still an explicit feature bit to enable -
+    // check it defensively rather than assuming.
+    VkPhysicalDeviceVulkan13Features features13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+    features2.pNext = &features13;
+    vkGetPhysicalDeviceFeatures2(device, &features2);
+
+    return features13.dynamicRendering == VK_TRUE;
 }
 
 int VulkanContext::ratePhysicalDevice(VkPhysicalDevice device) const {
@@ -260,12 +272,16 @@ void VulkanContext::createLogicalDevice() {
         queueCreateInfos.push_back(info);
     }
 
-    VkPhysicalDeviceFeatures features{}; // no optional features needed for v1
+    VkPhysicalDeviceFeatures features10{}; // no optional 1.0 features needed for v1
+
+    VkPhysicalDeviceVulkan13Features features13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+    features13.dynamicRendering = VK_TRUE; // lets the renderer skip render passes/framebuffers entirely
 
     VkDeviceCreateInfo createInfo{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+    createInfo.pNext = &features13;
     createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
     createInfo.pQueueCreateInfos = queueCreateInfos.data();
-    createInfo.pEnabledFeatures = &features;
+    createInfo.pEnabledFeatures = &features10;
     createInfo.enabledExtensionCount = static_cast<uint32_t>(kRequiredDeviceExtensions.size());
     createInfo.ppEnabledExtensionNames = kRequiredDeviceExtensions.data();
 
@@ -275,6 +291,17 @@ void VulkanContext::createLogicalDevice() {
 
     vkGetDeviceQueue(device_, queueFamilyIndices_.graphicsFamily.value(), 0, &graphicsQueue_);
     vkGetDeviceQueue(device_, queueFamilyIndices_.presentFamily.value(), 0, &presentQueue_);
+
+    setDebugObjectName(device_, VK_OBJECT_TYPE_DEVICE, reinterpret_cast<uint64_t>(device_), "simple-vk device");
+    if (graphicsQueue_ == presentQueue_) {
+        setDebugObjectName(device_, VK_OBJECT_TYPE_QUEUE, reinterpret_cast<uint64_t>(graphicsQueue_),
+                            "graphics/present queue");
+    } else {
+        setDebugObjectName(device_, VK_OBJECT_TYPE_QUEUE, reinterpret_cast<uint64_t>(graphicsQueue_),
+                            "graphics queue");
+        setDebugObjectName(device_, VK_OBJECT_TYPE_QUEUE, reinterpret_cast<uint64_t>(presentQueue_),
+                            "present queue");
+    }
 }
 
 void VulkanContext::createAllocator() {

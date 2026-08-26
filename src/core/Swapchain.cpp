@@ -1,11 +1,13 @@
 #include "Swapchain.h"
 
+#include "DebugUtils.h"
 #include "VkCheck.h"
 #include "VulkanContext.h"
 #include "Window.h"
 
 #include <algorithm>
 #include <limits>
+#include <string>
 
 namespace core {
 
@@ -94,10 +96,7 @@ void Swapchain::create() {
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
     createInfo.imageExtent = extent;
     createInfo.imageArrayLayers = 1;
-    // TRANSFER_DST is required because the renderer clears the swapchain
-    // image directly with vkCmdClearColorImage rather than going through a
-    // render pass / color attachment.
-    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     createInfo.imageSharingMode = sameFamily ? VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT;
     createInfo.queueFamilyIndexCount = sameFamily ? 0 : 2;
     createInfo.pQueueFamilyIndices = sameFamily ? nullptr : familyIndices;
@@ -108,6 +107,8 @@ void Swapchain::create() {
     createInfo.oldSwapchain = VK_NULL_HANDLE;
 
     vkCheck(vkCreateSwapchainKHR(context_.device(), &createInfo, nullptr, &swapchain_), "Failed to create swapchain");
+    setDebugObjectName(context_.device(), VK_OBJECT_TYPE_SWAPCHAIN_KHR, reinterpret_cast<uint64_t>(swapchain_),
+                        "swapchain");
 
     imageFormat_ = surfaceFormat.format;
     extent_ = extent;
@@ -133,6 +134,10 @@ void Swapchain::create() {
 
         vkCheck(vkCreateImageView(context_.device(), &viewInfo, nullptr, &imageViews_[i]),
                 "Failed to create swapchain image view");
+
+        const std::string debugName = "swapchain image view " + std::to_string(i);
+        setDebugObjectName(context_.device(), VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageViews_[i]),
+                            debugName.c_str());
     }
 }
 

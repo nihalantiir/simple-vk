@@ -37,6 +37,7 @@ int main() {
 
             game.update(deltaTime);
             renderer.drawFrame();
+            window.updateTitle(deltaTime);
         }
     } catch (const std::exception& e) {
         std::cerr << "Fatal error: " << e.what() << std::endl;

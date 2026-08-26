@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(simple-vk VERSION 0.1.0 LANGUAGES CXX)
+project(simple-vk VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -93,6 +93,7 @@ add_executable(simple-vk
   src/core/Window.cpp
   src/core/VulkanContext.cpp
   src/core/Swapchain.cpp
+  src/core/ShaderModule.cpp
   src/core/VmaImpl.cpp
   src/renderer/Renderer.cpp
   src/game/Game.cpp
@@ -124,3 +125,52 @@ target_link_libraries(simple-vk PRIVATE
 set_target_properties(simple-vk PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# --- Shader compilation (GLSL -> SPIR-V via the SDK's glslc) ---
+# find_package(Vulkan) already probes for glslc/glslangValidator and creates
+# Vulkan::glslc when found; fall back to a manual find_program() using the
+# same raw-SDK-layout pattern as the volk/VMA/glm fallbacks above.
+if(TARGET Vulkan::glslc)
+  set(GLSLC_COMMAND Vulkan::glslc)
+else()
+  find_program(GLSLC_EXECUTABLE NAMES glslc
+    PATHS "${VULKAN_SDK_ROOT}/Bin" "${VULKAN_SDK_ROOT}/bin" NO_DEFAULT_PATH)
+  if(NOT GLSLC_EXECUTABLE)
+    message(FATAL_ERROR "Could not find glslc under ${VULKAN_SDK_ROOT}")
+  endif()
+  set(GLSLC_COMMAND "${GLSLC_EXECUTABLE}")
+endif()
+
+set(SHADER_SOURCES
+  shaders/triangle.vert
+  shaders/triangle.frag
+)
+set(SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin/shaders")
+
+set(SHADER_SPV_FILES "")
+foreach(shader ${SHADER_SOURCES})
+  get_filename_component(shader_name "${shader}" NAME)
+  set(shader_output "${SHADER_OUTPUT_DIR}/${shader_name}.spv")
+  add_custom_command(
+    OUTPUT "${shader_output}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${SHADER_OUTPUT_DIR}"
+    COMMAND ${GLSLC_COMMAND} "${CMAKE_SOURCE_DIR}/${shader}" -o "${shader_output}"
+    DEPENDS "${CMAKE_SOURCE_DIR}/${shader}"
+    COMMENT "Compiling shader ${shader}"
+    VERBATIM
+  )
+  list(APPEND SHADER_SPV_FILES "${shader_output}")
+endforeach()
+
+add_custom_target(shaders DEPENDS ${SHADER_SPV_FILES})
+add_dependencies(simple-vk shaders)
+
+# --- Windows: copy SDL3.dll next to the built executable ---
+if(WIN32)
+  add_custom_command(TARGET simple-vk POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$<TARGET_FILE:SDL3::SDL3>"
+      "$<TARGET_FILE_DIR:simple-vk>"
+    COMMENT "Copying SDL3.dll next to the executable"
+  )
+endif()

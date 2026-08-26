@@ -24,6 +24,11 @@ public:
     // Pumps the SDL event queue and updates internal state (quit/resize).
     void pollEvents();
 
+    // Accumulates frame time and, at most a few times a second, updates the
+    // window title to "<title> — X.XX ms (YYY FPS)". Call once per frame
+    // with that frame's delta time.
+    void updateTitle(float deltaTimeSeconds);
+
     VkSurfaceKHR createSurface(VkInstance instance) const;
     std::vector<const char*> getRequiredInstanceExtensions() const;
 
@@ -39,6 +44,10 @@ private:
     SDL_Window* window_ = nullptr;
     bool quitRequested_ = false;
     bool resized_ = false;
+
+    std::string baseTitle_;
+    float titleUpdateTimer_ = 0.0f;
+    int titleUpdateFrames_ = 0;
 };
 
 } // namespace core

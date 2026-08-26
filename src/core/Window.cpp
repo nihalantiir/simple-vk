@@ -3,11 +3,16 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
+#include <cstdio>
 #include <stdexcept>
 
 namespace core {
 
-Window::Window(const std::string& title, int width, int height) {
+namespace {
+constexpr float kTitleUpdateInterval = 0.5f; // seconds between title refreshes
+}
+
+Window::Window(const std::string& title, int width, int height) : baseTitle_(title) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         throw std::runtime_error(std::string("Failed to initialize SDL: ") + SDL_GetError());
     }
@@ -39,6 +44,25 @@ void Window::pollEvents() {
                 break;
         }
     }
+}
+
+void Window::updateTitle(float deltaTimeSeconds) {
+    titleUpdateTimer_ += deltaTimeSeconds;
+    ++titleUpdateFrames_;
+
+    if (titleUpdateTimer_ < kTitleUpdateInterval) {
+        return;
+    }
+
+    const float avgFrameMs = (titleUpdateTimer_ / static_cast<float>(titleUpdateFrames_)) * 1000.0f;
+    const float fps = static_cast<float>(titleUpdateFrames_) / titleUpdateTimer_;
+
+    char buffer[128];
+    std::snprintf(buffer, sizeof(buffer), "%s \xE2\x80\x94 %.2f ms (%.0f FPS)", baseTitle_.c_str(), avgFrameMs, fps);
+    SDL_SetWindowTitle(window_, buffer);
+
+    titleUpdateTimer_ = 0.0f;
+    titleUpdateFrames_ = 0;
 }
 
 VkSurfaceKHR Window::createSurface(VkInstance instance) const {
