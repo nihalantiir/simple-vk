@@ -22,8 +22,12 @@ jobs:
         uses: jakoch/install-vulkan-sdk-action@v1
         with:
           vulkan_version: latest
-          optional_components: com.lunarg.vulkan.sdl3,com.lunarg.vulkan.volk,com.lunarg.vulkan.vma,com.lunarg.vulkan.glm
+          optional_components: com.lunarg.vulkan.volk,com.lunarg.vulkan.vma,com.lunarg.vulkan.glm
           cache: true
+
+      - name: DEBUG list SDK contents
+        shell: bash
+        run: find "$VULKAN_SDK" -maxdepth 6 \( -iname "*sdl*" -o -iname "*volk*" -o -iname "*vma*" -o -iname "glm*" \) 2>&1 | head -100
 
       - name: Set up MSVC Developer Command Prompt
         if: runner.os == 'Windows'
