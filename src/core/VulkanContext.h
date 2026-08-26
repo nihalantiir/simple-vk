@@ -17,8 +17,6 @@ struct QueueFamilyIndices {
     bool isComplete() const { return graphicsFamily.has_value() && presentFamily.has_value(); }
 };
 
-// Owns the core Vulkan bootstrap objects: instance, debug messenger,
-// surface, physical/logical device, queues, and the VMA allocator.
 class VulkanContext {
 public:
     explicit VulkanContext(Window& window);

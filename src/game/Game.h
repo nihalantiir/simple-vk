@@ -4,8 +4,6 @@
 
 namespace game {
 
-// Placeholder for game/engine logic, decoupled from core/ and renderer/.
-// main.cpp calls update() once per frame.
 class Game {
 public:
     Game() = default;

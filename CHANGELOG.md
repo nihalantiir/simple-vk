@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-08-27
+
+### Changed
+
+- Triangle is now truly equilateral, and stays equilateral on screen at
+  any window aspect ratio: base geometry is equilateral in a square
+  reference space, corrected for the swapchain's width/height ratio at
+  upload time
+- `.github/banner.svg` triangle replaced with a true equilateral polygon
+  (240px tall), soft gold-orange gradient, no stroke, no card
+- Trimmed remaining narrative class-doc comments across `src/` (Renderer,
+  Window, VulkanContext, Swapchain, ShaderModule, DebugUi, Game); kept
+  only comments explaining non-obvious behavior (VMA flags, barriers,
+  sync ordering)
+
 ## [0.3.0] - 2026-08-26
 
 ### Added

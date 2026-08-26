@@ -10,9 +10,6 @@ namespace core {
 class VulkanContext;
 class Window;
 
-// Owns the swapchain and its image views. Call recreate() after the window
-// is resized or when acquire/present report the swapchain out of date or
-// suboptimal.
 class Swapchain {
 public:
     Swapchain(VulkanContext& context, Window& window);

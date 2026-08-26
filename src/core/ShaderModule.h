@@ -8,9 +8,8 @@ namespace core {
 
 class VulkanContext;
 
-// RAII wrapper around a VkShaderModule. Loads compiled SPIR-V from disk,
-// resolved against the executable's directory (SDL_GetBasePath()) rather
-// than the process's current working directory.
+// Loads compiled SPIR-V resolved against the executable's directory
+// (SDL_GetBasePath()), not the process's current working directory.
 class ShaderModule {
 public:
     // relativePath e.g. "shaders/triangle.vert.spv".

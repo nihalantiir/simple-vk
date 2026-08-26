@@ -24,9 +24,6 @@ struct Vertex {
     float color[3];
 };
 
-// Per-frame renderer: acquires a swapchain image, draws a hardcoded
-// triangle via Vulkan 1.3 dynamic rendering, optionally records a debug UI
-// into the same pass, and presents.
 class Renderer {
 public:
     Renderer(core::VulkanContext& context, core::Swapchain& swapchain, core::Window& window);
@@ -76,10 +73,14 @@ private:
     std::array<void*, kFramesInFlight> vertexBuffersMapped_{};
 
     float clearColor_[3] = {0.035f, 0.018f, 0.010f};
+
+    // Equilateral in this base space; updateVertexBuffer() scales x by
+    // extent.height/extent.width at upload time so it stays equilateral on
+    // screen regardless of window aspect ratio.
     std::array<Vertex, 3> vertices_ = {{
-        {{0.0f, -0.65f}, {0.96f, 0.74f, 0.24f}},
-        {{0.45f, 0.45f}, {0.90f, 0.40f, 0.10f}},
-        {{-0.45f, 0.45f}, {0.62f, 0.16f, 0.07f}},
+        {{0.0f, -0.6f}, {0.96f, 0.74f, 0.24f}},
+        {{0.519615f, 0.3f}, {0.90f, 0.40f, 0.10f}},
+        {{-0.519615f, 0.3f}, {0.62f, 0.16f, 0.07f}},
     }};
 
     VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;

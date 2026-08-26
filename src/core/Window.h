@@ -11,8 +11,6 @@ union SDL_Event;
 
 namespace core {
 
-// SDL3 window and the SDL/Vulkan integration points. The only class that
-// knows about SDL directly.
 class Window {
 public:
     using EventCallback = std::function<void(const SDL_Event&)>;

@@ -158,7 +158,15 @@ void Renderer::createVertexBuffers() {
 }
 
 void Renderer::updateVertexBuffer(int frameIndex) {
-    std::memcpy(vertexBuffersMapped_[frameIndex], vertices_.data(), sizeof(vertices_));
+    const VkExtent2D extent = swapchain_.extent();
+    const float aspectCorrection = static_cast<float>(extent.height) / static_cast<float>(extent.width);
+
+    std::array<Vertex, 3> corrected = vertices_;
+    for (Vertex& vertex : corrected) {
+        vertex.position[0] *= aspectCorrection;
+    }
+
+    std::memcpy(vertexBuffersMapped_[frameIndex], corrected.data(), sizeof(corrected));
 }
 
 void Renderer::createPipeline() {

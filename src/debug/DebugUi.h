@@ -18,10 +18,6 @@ class Renderer;
 
 namespace debug {
 
-// Dear ImGui overlay: frame stats, swapchain info, and live clear/vertex
-// color editors for the triangle. Renders into the same dynamic rendering
-// pass as the triangle (see Renderer::recordCommandBuffer), not a second
-// pass.
 class DebugUi {
 public:
     DebugUi(core::VulkanContext& context, core::Swapchain& swapchain, core::Window& window,

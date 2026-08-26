@@ -271,7 +271,7 @@ void VulkanContext::createLogicalDevice() {
         queueCreateInfos.push_back(info);
     }
 
-    VkPhysicalDeviceFeatures features10{}; // no optional 1.0 features needed for v1
+    VkPhysicalDeviceFeatures features10{}; // no optional 1.0 features needed
 
     VkPhysicalDeviceVulkan13Features features13{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
     features13.dynamicRendering = VK_TRUE; // lets the renderer skip render passes/framebuffers entirely
