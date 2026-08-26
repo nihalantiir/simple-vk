@@ -1,10 +1,12 @@
 cmake_minimum_required(VERSION 3.24)
-project(simple-vk VERSION 0.3.1 LANGUAGES CXX)
+project(simple-vk VERSION 0.3.2 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+option(SIMPLE_VK_IMGUI "Build the Dear ImGui debug overlay (fetches Dear ImGui via CMake FetchContent)" ON)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type" FORCE)
@@ -88,37 +90,41 @@ if(NOT TARGET glm::glm)
 endif()
 
 # --- Dear ImGui (vendored via FetchContent into external/, pinned commit) ---
-include(FetchContent)
-set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/external" CACHE PATH "" FORCE)
+# Gated behind SIMPLE_VK_IMGUI: OFF skips the fetch entirely, so configure
+# needs no network access and src/debug/ isn't compiled.
+if(SIMPLE_VK_IMGUI)
+  include(FetchContent)
+  set(FETCHCONTENT_BASE_DIR "${CMAKE_SOURCE_DIR}/external" CACHE PATH "" FORCE)
 
-FetchContent_Declare(
-  imgui
-  GIT_REPOSITORY https://github.com/ocornut/imgui.git
-  GIT_TAG fd13a1e8923a0a7077b404fc36fd063b25a0c0b5 # docking, 2026-08-19
-  GIT_SHALLOW TRUE
-)
-FetchContent_MakeAvailable(imgui)
+  FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG fd13a1e8923a0a7077b404fc36fd063b25a0c0b5 # docking, 2026-08-19
+    GIT_SHALLOW TRUE
+  )
+  FetchContent_MakeAvailable(imgui)
 
-add_library(imgui STATIC
-  ${imgui_SOURCE_DIR}/imgui.cpp
-  ${imgui_SOURCE_DIR}/imgui_draw.cpp
-  ${imgui_SOURCE_DIR}/imgui_tables.cpp
-  ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-  ${imgui_SOURCE_DIR}/imgui_demo.cpp
-  ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
-  ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
-)
-target_include_directories(imgui PUBLIC
-  ${imgui_SOURCE_DIR}
-  ${imgui_SOURCE_DIR}/backends
-)
-target_compile_definitions(imgui PUBLIC
-  VK_NO_PROTOTYPES
-  IMGUI_IMPL_VULKAN_USE_VOLK # backend loads its Vulkan calls through volk instead of linking the loader directly
-)
-target_link_libraries(imgui PUBLIC volk::volk SDL3::SDL3)
+  add_library(imgui STATIC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+  )
+  target_include_directories(imgui PUBLIC
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+  )
+  target_compile_definitions(imgui PUBLIC
+    VK_NO_PROTOTYPES
+    IMGUI_IMPL_VULKAN_USE_VOLK # backend loads its Vulkan calls through volk instead of linking the loader directly
+  )
+  target_link_libraries(imgui PUBLIC volk::volk SDL3::SDL3)
+endif()
 
-add_executable(simple-vk
+set(SIMPLE_VK_SOURCES
   src/main.cpp
   src/core/Window.cpp
   src/core/VulkanContext.cpp
@@ -126,9 +132,13 @@ add_executable(simple-vk
   src/core/ShaderModule.cpp
   src/core/VmaImpl.cpp
   src/renderer/Renderer.cpp
-  src/debug/DebugUi.cpp
   src/game/Game.cpp
 )
+if(SIMPLE_VK_IMGUI)
+  list(APPEND SIMPLE_VK_SOURCES src/debug/DebugUi.cpp)
+endif()
+
+add_executable(simple-vk ${SIMPLE_VK_SOURCES})
 
 target_include_directories(simple-vk PRIVATE src)
 
@@ -136,6 +146,7 @@ target_compile_definitions(simple-vk PRIVATE
   VK_NO_PROTOTYPES               # all Vulkan entry points come from volk
   VMA_STATIC_VULKAN_FUNCTIONS=0
   VMA_DYNAMIC_VULKAN_FUNCTIONS=1
+  SIMPLE_VK_IMGUI=$<BOOL:${SIMPLE_VK_IMGUI}>
   $<$<CONFIG:Debug>:SVK_DEBUG>    # enables validation layers + debug messenger
   $<$<PLATFORM_ID:Windows>:NOMINMAX>
   $<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN>
@@ -151,8 +162,10 @@ target_link_libraries(simple-vk PRIVATE
   GPUOpen::VulkanMemoryAllocator
   SDL3::SDL3
   glm::glm
-  imgui
 )
+if(SIMPLE_VK_IMGUI)
+  target_link_libraries(simple-vk PRIVATE imgui)
+endif()
 
 set_target_properties(simple-vk PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"

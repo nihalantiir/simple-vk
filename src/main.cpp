@@ -1,9 +1,12 @@
 #include "core/Swapchain.h"
 #include "core/VulkanContext.h"
 #include "core/Window.h"
-#include "debug/DebugUi.h"
 #include "game/Game.h"
 #include "renderer/Renderer.h"
+
+#if SIMPLE_VK_IMGUI
+#include "debug/DebugUi.h"
+#endif
 
 #include <SDL3/SDL.h>
 
@@ -17,14 +20,20 @@ int main() {
         core::VulkanContext context(window);
         core::Swapchain swapchain(context, window);
         renderer::Renderer renderer(context, swapchain, window);
+#if SIMPLE_VK_IMGUI
         debug::DebugUi debugUi(context, swapchain, window, renderer);
+#endif
         game::Game game;
 
         Uint64 lastTicks = SDL_GetPerformanceCounter();
         const Uint64 frequency = SDL_GetPerformanceFrequency();
 
         while (!window.shouldClose()) {
+#if SIMPLE_VK_IMGUI
             window.pollEvents([&debugUi](const SDL_Event& event) { debugUi.processEvent(event); });
+#else
+            window.pollEvents();
+#endif
 
             int width = 0;
             int height = 0;
@@ -38,8 +47,12 @@ int main() {
             lastTicks = now;
 
             game.update(deltaTime);
+#if SIMPLE_VK_IMGUI
             debugUi.beginFrame();
             renderer.drawFrame(&debugUi);
+#else
+            renderer.drawFrame();
+#endif
             window.updateTitle(deltaTime);
         }
     } catch (const std::exception& e) {

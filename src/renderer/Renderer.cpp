@@ -6,7 +6,10 @@
 #include "../core/VkCheck.h"
 #include "../core/VulkanContext.h"
 #include "../core/Window.h"
+
+#if SIMPLE_VK_IMGUI
 #include "../debug/DebugUi.h"
+#endif
 
 #include <cstring>
 #include <iterator>
@@ -319,9 +322,13 @@ void Renderer::recordCommandBuffer(VkCommandBuffer cmd, uint32_t imageIndex, deb
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffers_[currentFrame_], &offset);
     vkCmdDraw(cmd, static_cast<uint32_t>(vertices_.size()), 1, 0, 0);
 
+#if SIMPLE_VK_IMGUI
     if (debugUi) {
         debugUi->render(cmd);
     }
+#else
+    static_cast<void>(debugUi);
+#endif
 
     vkCmdEndRendering(cmd);
 

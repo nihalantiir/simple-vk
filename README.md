@@ -45,6 +45,19 @@ Or with [CMake presets](CMakePresets.json): `cmake --preset debug && cmake --bui
 
 The executable, `SDL3.dll` (Windows), and compiled shaders all land in `build/bin/`.
 
+### Building without Dear ImGui
+
+The debug overlay is controlled by the `SIMPLE_VK_IMGUI` CMake option
+(default `ON`). Turn it off to skip fetching Dear ImGui entirely, so
+configure needs no network access and `src/debug/` isn't compiled:
+
+```
+cmake --preset debug -DSIMPLE_VK_IMGUI=OFF
+cmake --build --preset debug
+```
+
+The app still runs, just without the overlay.
+
 ## Cleaning
 
 ```
