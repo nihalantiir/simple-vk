@@ -25,26 +25,29 @@ jobs:
           optional_components: com.lunarg.vulkan.sdl2,com.lunarg.vulkan.volk,com.lunarg.vulkan.vma,com.lunarg.vulkan.glm
           cache: true
 
-      - name: DEBUG list SDK contents
-        shell: bash
-        run: find "$VULKAN_SDK" -maxdepth 6 \( -iname "*sdl*" -o -iname "volk*" -o -iname "vk_mem_alloc.h" -o -iname "VulkanMemoryAllocator*" -o -iname "glm" -o -iname "glm.hpp" \) 2>&1 | head -100
-
-      # The Vulkan SDK does not reliably offer SDL3 as an installable
-      # component in unattended CI installs (unlike the interactive Windows
-      # installer, which bundles it unconditionally) - vcpkg, preinstalled
-      # on GitHub-hosted runners, fills that gap for CI. volk/VMA/GLM still
-      # come from the Vulkan SDK, matching local development. [core] skips
-      # SDL3's optional Linux backends (wayland/x11/ibus/dbus), which pull
-      # in build tools (gperf, autoconf) this runner doesn't have and which
-      # a compile-only check doesn't need anyway.
-      - name: Install SDL3 (vcpkg)
+      # The Vulkan SDK does not reliably offer SDL3/GLM as installable
+      # components in unattended CI installs (unlike the interactive
+      # Windows installer, which bundles SDL3 unconditionally) - vcpkg,
+      # preinstalled on GitHub-hosted runners, fills that gap for CI.
+      # volk/VMA still come from the Vulkan SDK, matching local
+      # development. sdl3[core] skips SDL3's optional Linux backends
+      # (wayland/x11/ibus/dbus), which pull in build tools (gperf,
+      # autoconf) this runner doesn't have and which a compile-only check
+      # doesn't need anyway.
+      #
+      # The install prefix is captured into SIMPLE_VK_VCPKG_PREFIX (not
+      # VCPKG_ROOT) because ilammy/msvc-dev-cmd, which runs after this
+      # step on Windows, overwrites VCPKG_ROOT with Visual Studio's own
+      # bundled (and here, unused) vcpkg instance.
+      - name: Install SDL3 + GLM (vcpkg)
         shell: bash
         run: |
           VCPKG_ROOT="${VCPKG_INSTALLATION_ROOT:-$VCPKG_ROOT}"
-          echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
-          "$VCPKG_ROOT/vcpkg" install "sdl3[core]"
-          echo "--- installed tree ---"
-          find "$VCPKG_ROOT/installed" -iname "SDL3Config.cmake"
+          "$VCPKG_ROOT/vcpkg" install "sdl3[core]" glm
+
+          TRIPLET=x64-windows
+          [ "$RUNNER_OS" = "Linux" ] && TRIPLET=x64-linux
+          echo "SIMPLE_VK_VCPKG_PREFIX=$VCPKG_ROOT/installed/$TRIPLET" >> "$GITHUB_ENV"
 
       - name: Set up MSVC Developer Command Prompt
         if: runner.os == 'Windows'
@@ -57,14 +60,7 @@ jobs:
       # verifies the project configures and builds, not that it runs.
       - name: Configure
         shell: bash
-        run: |
-          TRIPLET=x64-windows
-          [ "$RUNNER_OS" = "Linux" ] && TRIPLET=x64-linux
-          SDL3_PREFIX="$VCPKG_ROOT/installed/$TRIPLET"
-          echo "VCPKG_ROOT=$VCPKG_ROOT"
-          echo "SDL3_PREFIX=$SDL3_PREFIX"
-          find "$SDL3_PREFIX" -iname "SDL3Config.cmake" 2>&1 || true
-          cmake --preset debug -DCMAKE_PREFIX_PATH="$SDL3_PREFIX"
+        run: cmake --preset debug -DCMAKE_PREFIX_PATH="$SIMPLE_VK_VCPKG_PREFIX"
 
       - name: Build
         run: cmake --build --preset debug
