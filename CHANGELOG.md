@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.3] - 2026-08-27
+
+### Added
+
+- Root `.clang-format` (LLVM base, 4-space indent, 120 columns,
+  left-aligned pointers). Not applied to the tree; sanity-checked against
+  `Renderer.cpp` and only produced trivial 1-space wrapped-argument
+  alignment differences
+- `ship` CMake preset: `release` plus `SIMPLE_VK_IMGUI=OFF`, the
+  recommended configuration to hand to someone else
+- README "Renaming this template" section and a matching, longer version
+  on the wiki's Extending page
+
+### Changed
+
+- Wiki Extending page now opens with the rule new systems belong in
+  `game/` or a new top-level module, not `core/`
+- Wiki Build and Shaders pages each state the shader/asset path contract
+  as a single explicit sentence: SPIR-V lands at `<build-dir>/bin/shaders/`
+  and is always resolved through the app's base path, never the current
+  working directory. Confirmed against `CMakeLists.txt` and
+  `ShaderModule.cpp`; already correct, wording only
+
 ## [0.3.2] - 2026-08-27
 
 ### Added

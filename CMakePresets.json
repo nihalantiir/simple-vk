@@ -28,11 +28,18 @@
       "displayName": "RelWithDebInfo",
       "inherits": "base",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    },
+    {
+      "name": "ship",
+      "displayName": "Ship (Release, no ImGui)",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "SIMPLE_VK_IMGUI": "OFF" }
     }
   ],
   "buildPresets": [
     { "name": "debug", "configurePreset": "debug" },
     { "name": "release", "configurePreset": "release" },
-    { "name": "relwithdebinfo", "configurePreset": "relwithdebinfo" }
+    { "name": "relwithdebinfo", "configurePreset": "relwithdebinfo" },
+    { "name": "ship", "configurePreset": "ship" }
   ]
 }

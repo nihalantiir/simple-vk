@@ -58,6 +58,19 @@ cmake --build --preset debug
 
 The app still runs, just without the overlay.
 
+### Shipping a build
+
+Release (or RelWithDebInfo) with the debug overlay off is the recommended
+configuration to hand to someone else:
+
+```
+cmake --preset ship
+cmake --build --preset ship
+```
+
+Equivalent to `-DCMAKE_BUILD_TYPE=Release -DSIMPLE_VK_IMGUI=OFF` on any of
+the other invocations above.
+
 ## Cleaning
 
 ```
@@ -88,6 +101,22 @@ simple-vk/
 `core/` stays generic, `renderer/` builds on it to draw, `debug/` overlays
 introspection on top, `game/` is where application logic lives. See
 [Architecture](https://github.com/nihalantiir/simple-vk/wiki/Architecture).
+
+## Renaming this template
+
+1. `CMakeLists.txt`: change `project(simple-vk ...)` and every `simple-vk`
+   target name (`add_executable`, the `target_*` calls, `add_dependencies`,
+   the SDL3.dll copy step).
+2. `src/main.cpp`: change the window title string `"simple-vk"`.
+3. Optional: `.github/banner.svg`, `README.md`, `CHANGELOG.md`, and the
+   wiki links all point at `nihalantiir/simple-vk`; update the owner/repo
+   if you push this to your own GitHub.
+4. The `"simple-vk device"` debug object name in `VulkanContext.cpp` is
+   cosmetic; rename it if you care about validation layer output.
+
+Grep for `simple-vk` afterward to confirm you got everything. See
+[Extending](https://github.com/nihalantiir/simple-vk/wiki/Extending) for
+the longer version.
 
 ## Documentation
 
