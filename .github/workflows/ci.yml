@@ -27,7 +27,19 @@ jobs:
 
       - name: DEBUG list SDK contents
         shell: bash
-        run: find "$VULKAN_SDK" -maxdepth 6 \( -iname "*sdl*" -o -iname "*volk*" -o -iname "*vma*" -o -iname "glm*" \) 2>&1 | head -100
+        run: find "$VULKAN_SDK" -maxdepth 6 \( -iname "*sdl*" -o -iname "volk*" -o -iname "vk_mem_alloc.h" -o -iname "VulkanMemoryAllocator*" -o -iname "glm" -o -iname "glm.hpp" \) 2>&1 | head -100
+
+      # The Vulkan SDK does not offer SDL3 as an installable component on
+      # every platform (unlike the interactive Windows installer, which
+      # bundles it unconditionally) - vcpkg, preinstalled on GitHub-hosted
+      # runners, fills that one gap for CI only. volk/VMA/GLM still come
+      # from the Vulkan SDK, matching local development.
+      - name: Install SDL3 (vcpkg)
+        shell: bash
+        run: |
+          VCPKG_ROOT="${VCPKG_INSTALLATION_ROOT:-$VCPKG_ROOT}"
+          echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
+          "$VCPKG_ROOT/vcpkg" install sdl3
 
       - name: Set up MSVC Developer Command Prompt
         if: runner.os == 'Windows'
@@ -39,7 +51,11 @@ jobs:
       # Compile-only: no GPU is available on hosted runners, so this
       # verifies the project configures and builds, not that it runs.
       - name: Configure
-        run: cmake --preset debug
+        shell: bash
+        run: |
+          TRIPLET=x64-windows
+          [ "$RUNNER_OS" = "Linux" ] && TRIPLET=x64-linux
+          cmake --preset debug -DCMAKE_PREFIX_PATH="$VCPKG_ROOT/installed/$TRIPLET"
 
       - name: Build
         run: cmake --build --preset debug
